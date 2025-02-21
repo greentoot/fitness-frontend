@@ -1,0 +1,6 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/creer-une-newsletter/page": "app/creer-une-newsletter/page.js",
+  "/api/newsletter/list/route": "app/api/newsletter/list/route.js"
+}

@@ -95,8 +95,10 @@ export default function CreerMagazine() {
   const [currentAgent, setCurrentAgent] = useState<string | null>(null)
   const [proposals, setProposals] = useState<Record<string, Topic[]>>({})
   const [selectedTopics, setSelectedTopics] = useState<Record<string, number[]>>({})
-  const [articles, setArticles] = useState<Article[]>([])
+  const [articles, setArticles] = useState<any>({})
   const [completedAgents, setCompletedAgents] = useState<string[]>([])
+  const [isPolling, setIsPolling] = useState(true)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const startProcess = async () => {
     setLoading(true)
@@ -202,28 +204,54 @@ export default function CreerMagazine() {
   }
 
   const pollForArticles = useCallback(async () => {
-    try {
-      const response = await fetch('/api/magazine/list')
-      if (!response.ok) {
-        throw new Error('Failed to fetch articles')
-      }
+    if (!isGenerating) return
 
-      const data = await response.json()
-      if (data.status === 'success' && data.data.articles) {
-        setArticles(data.data.articles)
-      }
+    try {
+        console.log('Polling for articles from Flask backend...')
+        const response = await fetch('http://localhost:8000/api/magazine/articles', {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          cache: 'no-store'  // Disable caching to get fresh results
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log('Received articles response:', data)
+        
+        if (data.status === 'success' && data.data) {
+            if (data.data.articles && Object.keys(data.data.articles).length > 0) {
+                console.log('Found articles:', data.data.articles)
+                setArticles(data.data.articles)
+                setIsGenerating(false)  // Stop polling once we have articles
+                setError(null)
+            } else {
+                console.log('No articles found yet, continuing to poll...')
+            }
+        } else {
+            console.error('Error in articles response:', data.message)
+        }
     } catch (err) {
-      console.error('Error polling for articles:', err)
+        console.error('Polling error:', err)
+        setError('Failed to fetch articles. Please try again.')
     }
-  }, [])
+  }, [isGenerating])
 
   useEffect(() => {
     if (step === 3) {
-      pollForArticles()
+      console.log('Starting article polling...')
+      setIsGenerating(true)
+      pollForArticles() // Initial poll
 
-      const interval = setInterval(pollForArticles, 15000)
-
-      return () => clearInterval(interval)
+      const interval = setInterval(pollForArticles, 5000)
+      return () => {
+        console.log('Stopping article polling...')
+        clearInterval(interval)
+        setIsGenerating(false)
+      }
     }
   }, [step, pollForArticles])
 
@@ -241,11 +269,14 @@ export default function CreerMagazine() {
         body: JSON.stringify({ selectedTopics })
       })
 
-      // Même si la requête échoue, on continue car crew_w.py fonctionne en arrière-plan
-      setStep(3)  // Passer à l'étape 3 pour commencer le polling
+      if (response.ok) {
+        setIsGenerating(true)  // Only set this when we get OK from the server
+      }
+      
+      setStep(3)  // Move to step 3 regardless
     } catch (err) {
       console.log('Note: Content creation process continues in background')
-      setStep(3)  // Assurer que nous passons à l'étape 3 même en cas d'erreur
+      setStep(3)
     } finally {
       setLoading(false)
     }
@@ -283,7 +314,7 @@ export default function CreerMagazine() {
       setCurrentAgent(null)
       setProposals({})
       setSelectedTopics({})
-      setArticles([])
+      setArticles({})
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de la réinitialisation")
       console.error(err)
@@ -339,79 +370,57 @@ export default function CreerMagazine() {
   }
 
   const renderArticles = () => {
-    if (!articles.length) return null
+    if (!isGenerating && Object.keys(articles).length === 0) {
+        return (
+            <div className="text-center p-8 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p>Starting article generation...</p>
+            </div>
+        )
+    }
 
-    // Group articles by agent
-    const articlesByAgent = articles.reduce((acc, article) => {
-      if (!acc[article.agent]) {
-        acc[article.agent] = []
-      }
-      acc[article.agent].push(article)
-      return acc
-    }, {} as Record<string, Article[]>)
+    if (isGenerating && Object.keys(articles).length === 0) {
+        return (
+            <div className="text-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-gray-500">Writing articles... This may take a few minutes.</p>
+            </div>
+        )
+    }
 
-    return (
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Articles Générés</h2>
-            <Button
-              onClick={downloadAllArticles}
-              variant="ghost"
-              size="sm"
-            >
-              Télécharger Tous les Articles
-            </Button>
-          </div>
-          <ScrollArea className="h-[600px] rounded-md border p-4">
-            {Object.entries(articlesByAgent).map(([agent, agentArticles]) => (
-              <Card key={agent} className="p-4 mb-6">
-                <h3 className="text-xl font-semibold mb-4">{agent}</h3>
-                <div className="space-y-4">
-                  {agentArticles.map((article) => (
-                    <Card key={article.filename} className="p-4">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h4 className="font-medium">Version {article.language}</h4>
-                          <p className="text-sm text-gray-500">{article.filename}</p>
-                        </div>
-                        <Button
-                          onClick={() => downloadArticle(article.filename)}
-                          variant="ghost"
-                          size="sm"
+    return Object.entries(articles).map(([agent, languages]: [string, any]) => (
+        <div key={agent} className="mb-8">
+            <h3 className="text-xl font-semibold mb-4">{agent}</h3>
+            <div className="grid grid-cols-2 gap-4">
+                {languages.EN && (
+                    <Card className="p-4">
+                        <h4 className="font-medium mb-2">English Version</h4>
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-3">{languages.EN.preview}</p>
+                        <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadArticle(languages.EN.filename)}
                         >
-                          Télécharger
+                            Download
                         </Button>
-                      </div>
-                      {article.preview ? (
-                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                          <p className="text-gray-700 text-sm">
-                            {article.preview}
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center p-4">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                        </div>
-                      )}
                     </Card>
-                  ))}
-                </div>
-              </Card>
-            ))}
-          </ScrollArea>
+                )}
+                {languages.FR && (
+                    <Card className="p-4">
+                        <h4 className="font-medium mb-2">French Version</h4>
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-3">{languages.FR.preview}</p>
+                        <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => downloadArticle(languages.FR.filename)}
+                        >
+                            Download
+                        </Button>
+                    </Card>
+                )}
+            </div>
         </div>
-        <div className="flex gap-4">
-          <Button 
-            onClick={resetProcess}
-            variant="ghost"
-            className="flex-1"
-          >
-            Réinitialiser le processus
-          </Button>
-        </div>
-      </div>
-    )
+    ))
   }
 
   // New component for article preview
@@ -578,39 +587,7 @@ export default function CreerMagazine() {
               </Button>
             </div>
             <ScrollArea className="h-[600px] rounded-md border p-4">
-              {articles.map(article => (
-                <Card key={article.filename} className="p-4 mb-4">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold">
-                        {article.agent}
-                      </h3>
-                      <p className="text-gray-600">
-                        Version: {article.language}
-                      </p>
-                      <p className="text-sm text-gray-500">{article.filename}</p>
-                    </div>
-                    <Button
-                      onClick={() => downloadArticle(article.filename)}
-                      variant="ghost"
-                      size="sm"
-                    >
-                      Télécharger l'article
-                    </Button>
-                  </div>
-                  {article.preview ? (
-                    <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                      <p className="text-gray-700 text-sm">
-                        {article.preview}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center p-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                    </div>
-                  )}
-                </Card>
-              ))}
+              {renderArticles()}
             </ScrollArea>
             <Button 
               onClick={resetProcess}

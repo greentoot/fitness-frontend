@@ -6,16 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sidebar } from "@/components/Sidebar"
-import { Copy } from 'lucide-react'
+import { Copy, History } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface Newsletter {
   filename: string
-  preview: string
+  title: string
   content: string
   created: string
 }
 
 export default function CreerNewsletter() {
+  const router = useRouter()
   const [topic, setTopic] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,15 +31,19 @@ export default function CreerNewsletter() {
 
   const fetchNewsletters = async () => {
     try {
-      const response = await fetch('/api/newsletter/list')
+      const response = await fetch('/api/newsletter/list', {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      })
       if (!response.ok) throw new Error('Failed to fetch newsletters')
       const data = await response.json()
-      if (data.status === 'success') {
+      if (data.status === 'success' && data.data.newsletters.length > 0) {
         setNewsletters(data.data.newsletters)
-        // If we just generated a newsletter, set it as current
-        if (data.data.latest && !currentNewsletter) {
-          setCurrentNewsletter(data.data.latest.content)
-        }
+        // Set the most recent newsletter as current
+        setCurrentNewsletter(data.data.latest.content)
       }
     } catch (err) {
       console.error('Error fetching newsletters:', err)
@@ -61,15 +67,9 @@ export default function CreerNewsletter() {
         body: JSON.stringify({ topic })
       })
 
-      if (!response.ok) {
-        const errorData = await response.text()
-        throw new Error(errorData || 'Failed to generate newsletter')
-      }
-
       const data = await response.json()
       if (data.status === 'success') {
         setCurrentNewsletter(data.data.content)
-        await fetchNewsletters()  // Refresh the list to include the new newsletter
       } else {
         throw new Error(data.message || 'Failed to generate newsletter')
       }
@@ -85,7 +85,7 @@ export default function CreerNewsletter() {
     try {
       await navigator.clipboard.writeText(text)
       setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)  // Reset after 2 seconds
+      setTimeout(() => setCopySuccess(false), 2000)
     } catch (err) {
       console.error('Failed to copy text:', err)
       setError('Failed to copy to clipboard')
@@ -116,8 +116,19 @@ export default function CreerNewsletter() {
     <div className="flex">
       <Sidebar />
       <div className="flex-1 p-6 space-y-6 ml-[250px]">
-        <h1 className="text-3xl font-bold">Créer une Newsletter</h1>
-        
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Créer une Newsletter</h1>
+          <Button
+            onClick={() => router.push('/archives-newsletter')}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <History className="h-4 w-4" />
+            Archives
+          </Button>
+        </div>
+
+        {/* Topic Search - Moved to top */}
         <Card className="p-6">
           <div className="space-y-4">
             <div className="flex gap-4">
@@ -143,7 +154,15 @@ export default function CreerNewsletter() {
           </div>
         </Card>
 
-        {currentNewsletter && (
+        {/* Loading State */}
+        {loading && (
+          <Card className="p-6">
+            <div className="text-center">Génération de la newsletter en cours...</div>
+          </Card>
+        )}
+
+        {/* Display the most recent newsletter if it exists */}
+        {currentNewsletter && !loading && (
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Newsletter Générée</h2>
@@ -163,6 +182,7 @@ export default function CreerNewsletter() {
           </Card>
         )}
 
+        {/* Previous Newsletters */}
         {newsletters.length > 0 && (
           <Card className="p-6">
             <h2 className="text-xl font-bold mb-4">Newsletters Précédentes</h2>
@@ -198,7 +218,7 @@ export default function CreerNewsletter() {
                     </div>
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <p className="text-sm text-gray-700">
-                        {newsletter.preview}
+                        {newsletter.title}
                       </p>
                     </div>
                   </Card>

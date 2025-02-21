@@ -1,53 +1,85 @@
 'use client'
 
-import Image from 'next/image'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Button } from "@/components/ui/button"
-import { Home, Newspaper, Calendar } from 'lucide-react'
+import { Book, Mail, Linkedin, FileText, LogOut } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
+import Image from "next/image"
 
 export function Sidebar() {
+  const router = useRouter()
   const pathname = usePathname()
 
-  const navItems = [
-    { icon: Home, label: "Accueil", href: "/" },
-    { icon: Newspaper, label: "Créer un magazine", href: "/creer-un-magazine" },
-    { icon: Calendar, label: "Planning", href: "/planning" },
+  const menuItems = [
+    {
+      title: "Magazine",
+      icon: <Book className="h-4 w-4" />,
+      href: "/creer-un-magazine"
+    },
+    {
+      title: "Newsletter",
+      icon: <Mail className="h-4 w-4" />,
+      href: "/creer-une-newsletter"
+    },
+    {
+      title: "LinkedIn",
+      icon: <Linkedin className="h-4 w-4" />,
+      href: "/creer-un-post-linkedin"
+    },
+    {
+      title: "Post",
+      icon: <FileText className="h-4 w-4" />,
+      href: "/creer-un-post-unique"
+    }
   ]
 
   return (
-    <aside className="fixed left-0 top-0 z-20 h-screen w-64 bg-white shadow-lg">
-      <div className="flex flex-col h-full">
-        <div className="p-6">
-          <Link href="/">
-            <Image
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-ZtN5hE8erMC4X3GDmSzeNh0j8Y0YC0.gif"
-              alt="Fitness Challenges Logo"
-              width={150}
-              height={80}
-              className="mb-8"
-            />
-          </Link>
-          <nav className="space-y-1">
-            {navItems.map((item, index) => (
-              <Button
-                key={index}
-                variant="ghost"
-                className={`w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg py-2 ${
-                  pathname === item.href ? 'bg-gray-100 text-gray-900' : ''
-                }`}
-                asChild
-              >
-                <Link href={item.href}>
-                  <item.icon className="mr-3 h-5 w-5" />
-                  {item.label}
-                </Link>
-              </Button>
-            ))}
-          </nav>
-        </div>
+    <div className="fixed left-0 h-full w-[250px] bg-white border-r p-6 flex flex-col">
+      {/* Logo/Home button */}
+      <div 
+        className="cursor-pointer mb-8"
+        onClick={() => router.push('/')}
+      >
+        <Image
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-ZtN5hE8erMC4X3GDmSzeNh0j8Y0YC0.gif"
+          alt="Fitness Challenges Logo"
+          width={150}
+          height={40}
+          priority
+        />
       </div>
-    </aside>
+
+      {/* Navigation Menu */}
+      <nav className="flex-1">
+        <ul className="space-y-2">
+          {menuItems.map((item) => (
+            <li key={item.href}>
+              <button
+                onClick={() => router.push(item.href)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+                  ${pathname === item.href 
+                    ? 'bg-gray-100 text-gray-900' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+              >
+                {item.icon}
+                {item.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      {/* Logout Button */}
+      <button
+        onClick={() => {
+          // Add logout logic here
+          router.push('/login')
+        }}
+        className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+      >
+        <LogOut className="h-4 w-4" />
+        Déconnexion
+      </button>
+    </div>
   )
 }
 

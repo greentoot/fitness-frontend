@@ -3,15 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Home, Layout, Calendar } from 'lucide-react'
-import { Card3D } from '@/components/Card3D'
 import { IntroAnimation } from '@/components/IntroAnimation'
 import { Sidebar } from '@/components/Sidebar'
-import { LogoutButton } from '@/components/LogoutButton'
+import { Card3D } from '@/components/Card3D'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -33,7 +29,7 @@ export default function Dashboard() {
     } else {
       sessionStorage.setItem('hasSeenIntro', 'true')
     }
-  }, [router]) // Only depend on router
+  }, [router])
 
   const projectCards = [
     {
@@ -94,12 +90,6 @@ export default function Dashboard() {
     },
   ]
 
-  const navItems = [
-    { icon: Home, label: "Accueil", href: "/" },
-    { icon: Layout, label: "Articles", href: "/articles" },
-    { icon: Calendar, label: "Planning", href: "/planning" },
-  ]
-
   const feedItems = [
     {
       author: "Pierre Martin",
@@ -124,62 +114,15 @@ export default function Dashboard() {
   return (
     <>
       {showIntro && <IntroAnimation />}
-      <div className="flex bg-gray-50 font-['Montserrat',sans-serif] text-gray-900">
-        <aside className="fixed left-0 top-0 z-20 h-screen w-64 bg-white shadow-lg">
-          <div className="flex flex-col h-full">
-            <div className="p-6">
-              <Link href="/" className="block transform transition-transform hover:scale-105" onClick={(e) => {
-                e.preventDefault()
-                if (window.location.pathname === '/') return
-                router.push('/')
-              }}>
-                <Image
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-ZtN5hE8erMC4X3GDmSzeNh0j8Y0YC0.gif"
-                  alt="Fitness Challenges Logo"
-                  width={150}
-                  height={80}
-                  className="mb-8"
-                />
-              </Link>
-              <nav className="space-y-1">
-                {navItems.map((item, index) => (
-                  <Link 
-                    key={index} 
-                    href={item.href}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      if (window.location.pathname === item.href) return
-                      router.push(item.href)
-                    }}
-                  >
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg py-2 transform transition-all hover:translate-x-1"
-                    >
-                      <item.icon className="mr-3 h-5 w-5" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                ))}
-                
-                <div className="my-4 border-t border-gray-200" />
-                
-                <LogoutButton />
-              </nav>
-            </div>
-          </div>
-        </aside>
-
-        <main className="ml-64 flex-1 p-8">
+      <div className="flex">
+        <Sidebar />
+        <div className="flex-1 p-6 ml-[250px]">
           <div className="max-w-6xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {projectCards.map((card, index) => (
                 <Card3D
                   key={index}
-                  title={card.title}
-                  icon={card.icon}
-                  color={card.color}
-                  href={card.href}
+                  {...card}
                 />
               ))}
             </div>
@@ -219,7 +162,7 @@ export default function Dashboard() {
               </ScrollArea>
             </Card>
           </div>
-        </main>
+        </div>
       </div>
     </>
   )
